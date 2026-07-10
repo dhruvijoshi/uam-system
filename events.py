@@ -23,7 +23,6 @@ class RequestRide:
             sim.log(f"No aircrafts available at {self.origin.name}")
             return
 
-        sim.log(f"aircraft {aircraft.id} assigned")
         self.passenger.status = "assigned"
         self.status = "booked"
         sim.log(f"{aircraft.id} assigned to {self.passenger.name} (id: {self.passenger.id}) from {self.origin.name} (id: {self.origin.id}) to {self.destination.name} (id: {self.destination.id})")

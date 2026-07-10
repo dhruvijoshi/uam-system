@@ -3,19 +3,36 @@
     {"id": "v0001", "name":"Anteiku","latitude":10,"longitude":20},
     {"id": "v0002", "name":"Zeum Hall","latitude":50,"longitude":30},
     {"id": "v0003", "name":"Ward 11","latitude":90,"longitude":70},
-    {"id": "v0004", "name":"Cochlea","latitude":9,"longitude":12}
+    {"id": "v0004", "name":"Cochlea","latitude":9,"longitude":12},
+    {"id": "v0005", "name": "The Chataeu", "latitude":58,"longitude":21},
+    {"id": "v0006", "name": "Aogiri", "latitude":6 ,"longitude":13},
+    {"id": "v0007", "name": "CCG", "latitude": 74,"longitude":87},
+    {"id": "v0008", "name": "Tsukiyama Estate", "latitude":27 ,"longitude":5}
   ],
 
   "passengers": [ 
     {"id": "p0001", "name":"Kaneki", "location":"v0001", "destination":"v0002"},
     {"id": "p0002", "name":"Nishiki", "location":"v0003", "destination":"v0001"},
-    {"id": "p0003", "name":"Juuzou", "location":"v0004", "destination":"v0003"}
+    {"id": "p0003", "name":"Juuzou", "location":"v0004", "destination":"v0003"},
+    {"id": "p0004", "name":"Touka", "location":"v0003", "destination":"v0001"},
+    {"id": "p0005", "name":"Yoshimura", "location":"v0001", "destination":"v0008"},
+    {"id": "p0006", "name":"Amon", "location":"v0007", "destination":"v0005"},
+    {"id": "p0007", "name":"Akira", "location":"v0006", "destination":"v0007"},
+    {"id": "p0008", "name":"Yamori", "location":"v0005", "destination":"v0003"},
+    {"id": "p0009", "name":"Rize", "location":"v0006", "destination":"v0003"},
+    {"id": "p00010", "name":"Tsukiyama", "location":"v0008", "destination":"v0001"},
+    {"id": "p00011", "name":"Enji", "location":"v0002", "destination":"v0004"},
+    {"id": "p00012", "name":"Hide", "location":"v0007", "destination":"v0001"},
+    {"id": "p00013", "name":"Eto", "location":"v0004", "destination":"v0006"}
   ],
 
   "aircrafts": [
     {"id":"Ukaku", "home": "v0004", "location":"v0004", "battery":"100"},
     {"id":"Koukaku", "home":"v0001", "location":"v0004", "battery":"100"},
     {"id":"Rinkaku", "home":"v0003", "location":"v0001", "battery":"100"},
-    {"id":"Bikaku", "home":"v0002", "location":"v0003", "battery":"100"}
+    {"id":"Bikaku", "home":"v0002", "location":"v0003", "battery":"100"},
+    {"id": "Blades", "home":"v0007", "location":"v0008", "battery":"90"},
+    {"id": "White suite", "home":"v0005", "location":"v0005", "battery":"100"},
+    {"id": "Quinx", "home":"v0007", "location":"v0007", "battery":"100"}
   ]
 }
