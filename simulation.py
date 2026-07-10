@@ -23,11 +23,11 @@ class Simulation:
 
     def register_aircraft(self, aircraft: Aircraft):
         self.aircrafts[aircraft.id] = aircraft
-        
+
         # Save the aircraft at vertiport matching its location
-        for key, value in self.vertiports.items():
-            if key == aircraft.location:
-                value.aircrafts.append(aircraft)
+        for value in self.vertiports:
+            if value == aircraft.location:
+                self.vertiports[value].aircrafts.append(aircraft)
 
     def register_passenger(self, passenger: Passenger):
         self.passengers[passenger.id] = passenger

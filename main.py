@@ -1,52 +1,34 @@
 """
 Entry point for the simulation.
 
-Wires up a small test world — three vertiports, two aircraft, two passengers —
-and runs two concurrent ride requests to exercise the full event chain.
+Wires up a small test world from re.json world file.
 """
 from models import Passenger, Aircraft, Vertiport
 from events import RequestRide
 from simulation import Simulation
-
+import json
 
 def main():
     sim = Simulation()
+    
+    # Load and initialise world
+    with open('./data/cities/re.json','r', encoding='utf-8') as file:
+        data = json.load(file)
 
-    # Vertiports placed on a 2-D plane; coordinates drive Euclidean travel time
-    anteiku = Vertiport("Anteiku", 10.0, 20.0)
-    zeum_hall = Vertiport("Zeum Hall", 50.0, 30.0)
-    cochlea = Vertiport("Cochlea", 9.0, 12.0)
-    sim.register_vertiport(anteiku)
-    sim.register_vertiport(zeum_hall)
-    sim.register_vertiport(cochlea)
+    for i in data['vertiports']:
+        sim.register_vertiport(Vertiport(i['id'], i['name'], i['latitude'], i['longitude']))
 
-    # Aircrafts initialise - id, Home, Current location parameters
-    rinkaku = Aircraft("Rinkaku", "Anteiku", "Anteiku")
-    bikaku = Aircraft("Bikaku", "Ward 11", "Anteiku")
-    sim.register_aircraft(rinkaku)
-    sim.register_aircraft(bikaku)
+    for i in data['passengers']:
+        sim.register_passenger(Passenger(i['id'], i['name'], i['location'], i['destination']))
 
-    # Initialise Passengers - id, current location and destination (destination added for initial system simulation)
-    kaneki = Passenger("Kaneki", "Anteiku", "Zeum Hall")
-    juuzou = Passenger("Juuzou", "Anteiku", "Cochlea")
-    sim.register_passenger(kaneki)
-    sim.register_passenger(juuzou)
+    for i in data['aircrafts']:
+        sim.register_aircraft(Aircraft(i['id'], i['home'], i['location'], i['battery']))
 
-    aircraft = anteiku.aircrafts
-    print(f'list of aircrafts: {aircraft}')
-
-    if aircraft:
-        # Schedule at t=0 and t=1 so rides are staggered but share the same pool
-        ride_1 = RequestRide(juuzou, anteiku, juuzou.destination)
-        sim.schedule(0, ride_1)
-
-        ride_2 = RequestRide(kaneki, anteiku, kaneki.destination)
-        sim.schedule(1, ride_2)
-
-        sim.run()
-    else:
-        print("No aircraft available")
-
+    # Initialise rides 
+    for i in sim.passengers:
+        sim.schedule(0, RequestRide(sim.passengers[i], sim.vertiports[sim.passengers[i].location], sim.vertiports[sim.passengers[i].destination]))
+    
+    sim.run()
 
 if __name__ == "__main__":
     main()

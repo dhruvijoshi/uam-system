@@ -12,6 +12,7 @@ import math
 @dataclass
 class Passenger:
     id: str
+    name: str
     location: str  # vertiport id or aircraft id reference while in transit
     destination: str
     status: str = "waiting"  # waiting → assigned → boarded → arrived
@@ -29,10 +30,11 @@ class Aircraft:
 @dataclass
 class Vertiport:
     id: str
-    x: float
-    y: float
+    name: str
+    latitude: float
+    longitude: float
     # Mutable list of aircrafts present
     aircrafts: List[Aircraft] = field(default_factory=list)
 
     def distance_to(self, other: "Vertiport") -> float:
-        return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
+        return math.sqrt((self.latitude - other.latitude) ** 2 + (self.longitude - other.longitude) ** 2)

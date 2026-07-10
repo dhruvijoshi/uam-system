@@ -1,0 +1,21 @@
+{
+  "vertiports": [
+    {"id": "v0001", "name":"Anteiku","latitude":10,"longitude":20},
+    {"id": "v0002", "name":"Zeum Hall","latitude":50,"longitude":30},
+    {"id": "v0003", "name":"Ward 11","latitude":90,"longitude":70},
+    {"id": "v0004", "name":"Cochlea","latitude":9,"longitude":12}
+  ],
+
+  "passengers": [ 
+    {"id": "p0001", "name":"Kaneki", "location":"v0001", "destination":"v0002"},
+    {"id": "p0002", "name":"Nishiki", "location":"v0003", "destination":"v0001"},
+    {"id": "p0003", "name":"Juuzou", "location":"v0004", "destination":"v0003"}
+  ],
+
+  "aircrafts": [
+    {"id":"Ukaku", "home": "v0004", "location":"v0004", "battery":"100"},
+    {"id":"Koukaku", "home":"v0001", "location":"v0004", "battery":"100"},
+    {"id":"Rinkaku", "home":"v0003", "location":"v0001", "battery":"100"},
+    {"id":"Bikaku", "home":"v0002", "location":"v0003", "battery":"100"}
+  ]
+}
