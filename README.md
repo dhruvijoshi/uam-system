@@ -30,7 +30,7 @@ Travel time between vertiports is the Euclidean distance between their latitude/
 
 Each ride request is also tracked as a `FlightSector` — a journey record that starts in a `requested` state and is filled in as the ride progresses (aircraft assigned, distance/battery calculated, departure and arrival ticks stamped), rather than that information being computed once and thrown away. A request with no aircraft available at the origin is marked `rejected` instead of silently disappearing.
 
-See [docs/Phase_1_UAM_architecture.png](docs/Phase_1_UAM_architecture.png) for the system architecture and [docs/Phase_1_Kaneki_journey_flow.png](docs/Phase_1_Kaneki_journey_flow.png) for a single passenger's journey through the event chain.
+See [docs/current_architecture_diagram.png](docs/current_architecture_diagram.png) for the system architecture and [docs/Phase_1_Kaneki_journey_flow.png](docs/Phase_1_Kaneki_journey_flow.png) for a single passenger's journey through the event chain.
 
 ---
 
