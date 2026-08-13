@@ -14,7 +14,6 @@ class Passenger:
     id: str
     name: str
     location: str  # vertiport id or aircraft id reference while in transit
-    destination: str
     status: str = "waiting"  # waiting → assigned → boarded → arrived
 
 
@@ -24,7 +23,7 @@ class Aircraft:
     home: str      # home vertiport
     location: str  # current vertiport id, or "engaged" while in flight
     status: str = "idle"   # idle → flying → idle (after charge)
-    battery: int = 100     # percentage; depletes 10% per trip
+    battery: int = 100     # percentage; depletes based on distance travelled
 
 
 @dataclass
@@ -38,3 +37,20 @@ class Vertiport:
 
     def distance_to(self, other: "Vertiport") -> float:
         return math.sqrt((self.latitude - other.latitude) ** 2 + (self.longitude - other.longitude) ** 2)
+
+
+@dataclass
+class FlightSector:
+    # Journey record for one ride request
+    id: str
+    passenger: Passenger
+    origin: Vertiport
+    destination: Vertiport
+    ride_request_time: int
+    aircraft: Aircraft | None = None
+    distance: float = 0          # Euclidean distance, set on departure
+    battery_required: float = 0  # distance / 2, set on departure
+    departure_time: int = 0
+    arrival_time: int = 0
+    estimated_time_of_arrival: int = 0     # Same as distance
+    status: str = "requested"        # requested → accepted → rejected → enroute → delayed → arrived

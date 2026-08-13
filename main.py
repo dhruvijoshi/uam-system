@@ -3,8 +3,7 @@ Entry point for the simulation.
 
 Wires up a small test world from re.json world file.
 """
-from models import Passenger, Aircraft, Vertiport
-from events import RequestRide
+from models import Passenger, Aircraft, Vertiport, FlightSector
 from simulation import Simulation
 import json
 
@@ -19,15 +18,22 @@ def main():
         sim.register_vertiport(Vertiport(i['id'], i['name'], i['latitude'], i['longitude']))
 
     for i in data['passengers']:
-        sim.register_passenger(Passenger(i['id'], i['name'], i['location'], i['destination']))
+        sim.register_passenger(Passenger(i['id'], i['name'], i['location']))
 
     for i in data['aircrafts']:
-        sim.register_aircraft(Aircraft(i['id'], i['home'], i['location'], i['battery']))
+        sim.register_aircraft(Aircraft(i['id'], i['home'], i['location'], int(i['battery'])))
 
-    # Initialise rides 
-    for i in sim.passengers:
-        sim.schedule(0, RequestRide(sim.passengers[i], sim.vertiports[sim.passengers[i].location], sim.vertiports[sim.passengers[i].destination]))
-    
+    # Ride requests: each JSON sector becomes a FlightSector 
+    for i in data['sectors']:
+        sector = FlightSector(
+            i['id'],
+            sim.passengers[i['passenger']],
+            sim.vertiports[i['origin']],
+            sim.vertiports[i['destination']],
+            int(i['ride_request_time']),
+        )
+        sim.schedule_ride_request(sector)
+
     sim.run()
 
 if __name__ == "__main__":

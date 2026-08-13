@@ -5,7 +5,8 @@ Time is unitless; events are processed in chronological order.
 Events scheduled at the same tick execute in insertion order via _counter.
 """
 import heapq
-from models import Vertiport, Aircraft, Passenger
+from events import RequestRide
+from models import Vertiport, Aircraft, Passenger, FlightSector
 
 
 class Simulation:
@@ -17,6 +18,7 @@ class Simulation:
         self.vertiports: dict[str, Vertiport] = {}
         self.aircrafts: dict[str, Aircraft] = {}
         self.passengers: dict[str, Passenger] = {}
+        self.sectors: dict[str, FlightSector] = {}
 
     def register_vertiport(self, vertiport: Vertiport):
         self.vertiports[vertiport.id] = vertiport
@@ -31,6 +33,13 @@ class Simulation:
 
     def register_passenger(self, passenger: Passenger):
         self.passengers[passenger.id] = passenger
+
+    def schedule_ride_request(self, sector: FlightSector):
+        # Registry entry is created up front in "requested" state; RequestRide
+        # fills in the aircraft/distance/timing fields as the ride progresses.
+        self.sectors[sector.id] = sector
+        self.schedule(sector.ride_request_time, RequestRide(sector.passenger, sector.origin, sector.destination, sector))
+
 
     def schedule(self, time, event):
         heapq.heappush(self._queue, (time, self._counter, event))
