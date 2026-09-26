@@ -5,8 +5,24 @@ Time is unitless; events are processed in chronological order.
 Events scheduled at the same tick execute in insertion order via _counter.
 """
 import heapq
+import json
+import os
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from events import RequestRide
-from models import Vertiport, Aircraft, Passenger, FlightSector
+from models import Vertiport, Aircraft, Passenger, FlightSector, LogCategory
+
+
+@dataclass
+class LogEntry:
+    # Structured record of one simulation event, kept alongside the console print
+    tick: int
+    category: LogCategory
+    message: str
+    actor: str | None = None       # aircraft id, when the event is aircraft-driven
+    sector: str | None = None
+    passenger: str | None = None
+    meta: dict = field(default_factory=dict)
 
 
 class Simulation:
@@ -19,6 +35,7 @@ class Simulation:
         self.aircrafts: dict[str, Aircraft] = {}
         self.passengers: dict[str, Passenger] = {}
         self.sectors: dict[str, FlightSector] = {}
+        self.log_entries: list[LogEntry] = []
 
     def register_vertiport(self, vertiport: Vertiport):
         self.vertiports[vertiport.id] = vertiport
@@ -45,8 +62,31 @@ class Simulation:
         heapq.heappush(self._queue, (time, self._counter, event))
         self._counter += 1
 
-    def log(self, message):
-        print(f"[t={self.now}] {message}")
+    def log(self, category, message, *, actor=None, sector=None, passenger=None, meta=None):
+        category = LogCategory(category)
+        entry = LogEntry(self.now, category, message, actor, sector, passenger, meta or {})
+        self.log_entries.append(entry)
+        print(f"[t={self.now}][{category.value}] {message}")
+
+    def logs_by(self, category=None, actor=None, sector=None):
+        return [
+            e for e in self.log_entries
+            if (category is None or e.category == category)
+            and (actor is None or e.actor == actor)
+            and (sector is None or e.sector == sector)
+        ]
+
+    def save_logs(self, path: str | None = None) -> str:
+        if path is None:
+            os.makedirs("logs", exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            path = f"logs/run_{timestamp}.jsonl"
+        with open(path, "w", encoding="utf-8") as f:
+            for entry in self.log_entries:
+                record = asdict(entry)
+                record["category"] = LogCategory(entry.category).value
+                f.write(json.dumps(record) + "\n")
+        return path
 
     def run(self):
         while self._queue:

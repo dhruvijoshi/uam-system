@@ -5,8 +5,19 @@ Coordinates use an arbitrary 2-D plane; distance is Euclidean and maps
 directly to travel time (rounded ticks) in DepartAircraft.
 """
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import List
 import math
+
+
+class LogCategory(str, Enum):
+    REJECTED = "rejected"
+    ASSIGNED = "assigned"
+    BOARDED = "boarded"
+    DEPARTED = "departed"
+    ARRIVED = "arrived"
+    DISEMBARKED = "disembarked"
+    CHARGED = "charged"
 
 
 @dataclass
@@ -53,4 +64,4 @@ class FlightSector:
     departure_time: int = 0
     arrival_time: int = 0
     estimated_time_of_arrival: int = 0     # Same as distance
-    status: str = "requested"        # requested → accepted → rejected → enroute → delayed → arrived
+    status: str = "requested"        # requested → accepted | rejected; accepted → enroute → arrived

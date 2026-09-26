@@ -7,7 +7,7 @@ Each event's execute() method may schedule follow-on events, forming a chain:
 """
 import math
 from dataclasses import dataclass
-from models import Passenger, Aircraft, Vertiport, FlightSector
+from models import Passenger, Aircraft, Vertiport, FlightSector, LogCategory
 
 
 @dataclass
@@ -23,14 +23,23 @@ class RequestRide:
 
         if aircraft is None:
             self.sector.status = "rejected"
-            sim.log(f"Ride requested ({self.sector.id}) by {self.passenger.name} ({self.passenger.id}) from {self.origin.name} to {self.destination.name} was cancelled due to no aircraft available.")
+            sim.log(
+                LogCategory.REJECTED,
+                f"Ride requested ({self.sector.id}) by {self.passenger.name} ({self.passenger.id}) from {self.origin.name} to {self.destination.name} was cancelled due to no aircraft available.",
+                sector=self.sector.id, passenger=self.passenger.id,
+                meta={"origin": self.origin.id, "destination": self.destination.id},
+            )
             return
 
         self.passenger.status = "assigned"
         self.status = "booked"
         self.sector.aircraft = aircraft
         self.sector.status = "accepted"
-        sim.log(f"{aircraft.id} assigned to {self.passenger.name} (id: {self.passenger.id}) from {self.origin.name} (id: {self.origin.id}) to {self.destination.name} (id: {self.destination.id})")
+        sim.log(
+            LogCategory.ASSIGNED,
+            f"{aircraft.id} assigned to {self.passenger.name} (id: {self.passenger.id}) from {self.origin.name} (id: {self.origin.id}) to {self.destination.name} (id: {self.destination.id})",
+            actor=aircraft.id, sector=self.sector.id, passenger=self.passenger.id,
+        )
         sim.schedule(sim.now+1, BoardPassenger(self.passenger, aircraft, self.origin, self.destination, self.sector))
 
     def find_aircraft(self) -> Aircraft | None:
@@ -49,8 +58,12 @@ class BoardPassenger:
     sector: FlightSector
 
     def execute(self, sim):
-        self.passenger.location = self.aircraft
-        sim.log(f"{self.passenger.name} (id: {self.passenger.id}) boarded {self.aircraft.id} at {self.origin.name} (id: {self.origin.id})")
+        self.passenger.location = self.aircraft.id
+        sim.log(
+            LogCategory.BOARDED,
+            f"{self.passenger.name} (id: {self.passenger.id}) boarded {self.aircraft.id} at {self.origin.name} (id: {self.origin.id})",
+            actor=self.aircraft.id, sector=self.sector.id, passenger=self.passenger.id,
+        )
         sim.schedule(sim.now+1, DepartAircraft(self.passenger, self.aircraft, self.origin, self.destination, self.sector))
 
 
@@ -77,7 +90,12 @@ class DepartAircraft:
         self.sector.departure_time = sim.now
         self.sector.status = "enroute"
 
-        sim.log(f"{self.aircraft.id} departed {self.origin.name} -> {self.destination.name} (ETA {travel_time}t)")
+        sim.log(
+            LogCategory.DEPARTED,
+            f"{self.aircraft.id} departed {self.origin.name} -> {self.destination.name} (ETA {travel_time}t)",
+            actor=self.aircraft.id, sector=self.sector.id,
+            meta={"distance": distance, "battery_required": self.sector.battery_required, "eta": travel_time},
+        )
         sim.schedule(sim.now + travel_time, ArriveAircraft(self.passenger, self.aircraft, self.destination, self.sector))
 
 
@@ -98,7 +116,12 @@ class ArriveAircraft:
         self.sector.arrival_time = sim.now
         self.sector.status = "arrived"
 
-        sim.log(f"{self.aircraft.id} arrived at {self.destination.name}, battery {self.aircraft.battery}%")
+        sim.log(
+            LogCategory.ARRIVED,
+            f"{self.aircraft.id} arrived at {self.destination.name}, battery {self.aircraft.battery}%",
+            actor=self.aircraft.id, sector=self.sector.id,
+            meta={"battery": self.aircraft.battery},
+        )
         sim.schedule(sim.now + 1, DisembarkPassenger(self.passenger, self.aircraft))
 
 
@@ -108,9 +131,12 @@ class DisembarkPassenger:
     aircraft: Aircraft
 
     def execute(self, sim):
-        self.aircraft.passenger = None
         self.passenger.status = "arrived"
-        sim.log(f"{self.passenger.name} disembarked at {sim.vertiports[self.passenger.location].name}")
+        sim.log(
+            LogCategory.DISEMBARKED,
+            f"{self.passenger.name} disembarked at {sim.vertiports[self.passenger.location].name}",
+            actor=self.aircraft.id, passenger=self.passenger.id,
+        )
         sim.schedule(sim.now + 1, ChargeAircraft(self.aircraft))
 
 
@@ -122,4 +148,4 @@ class ChargeAircraft:
         # Instant full recharge
         self.aircraft.battery = 100
         self.aircraft.status = "idle"
-        sim.log(f"{self.aircraft.id} charged to 100%, status idle")
+        sim.log(LogCategory.CHARGED, f"{self.aircraft.id} charged to 100%, status idle", actor=self.aircraft.id)
