@@ -18,6 +18,7 @@ class LogCategory(str, Enum):
     ARRIVED = "arrived"
     DISEMBARKED = "disembarked"
     CHARGED = "charged"
+    CHARGING = "charging"
 
 
 @dataclass
@@ -33,8 +34,9 @@ class Aircraft:
     id: str
     home: str      # home vertiport
     location: str  # current vertiport id, or "engaged" while in flight
-    status: str = "idle"   # idle → flying → idle (after charge)
+    status: str = "idle"   # idle → flying → charging → idle
     battery: int = 100     # percentage; depletes based on distance travelled
+    passenger: Passenger | None = None  # on board from boarding until disembark
 
 
 @dataclass
@@ -59,9 +61,9 @@ class FlightSector:
     destination: Vertiport
     ride_request_time: int
     aircraft: Aircraft | None = None
-    distance: float = 0          # Euclidean distance, set on departure
-    battery_required: float = 0  # distance / 2, set on departure
+    distance: float = 0          # Euclidean distance
+    battery_required: float = 0  # ceil(distance) / 2
     departure_time: int = 0
     arrival_time: int = 0
-    estimated_time_of_arrival: int = 0     # Same as distance
+    estimated_time_of_arrival: int = 0     # Travel duration in ticks (distance truncated)
     status: str = "requested"        # requested → accepted | rejected; accepted → enroute → arrived
