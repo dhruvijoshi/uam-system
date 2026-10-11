@@ -23,12 +23,14 @@ Instead of relying on an existing simulation framework, the initial versions int
 The simulation runs on a priority-queue-based event loop (see [simulation.py](simulation.py)). Time advances in integer ticks. Each event fires at a scheduled tick and may enqueue follow-on events, forming a chain:
 
 ```
-RequestRide → BoardPassenger → DepartAircraft → ArriveAircraft → DisembarkPassenger → ChargeAircraft
+RequestRide → BoardPassenger → DepartAircraft → ArriveAircraft → DisembarkPassenger → ChargeAircraft → FinishCharging
 ```
 
-Travel time between vertiports is the Euclidean distance between their latitude/longitude coordinates, rounded to the nearest tick (minimum 1). Battery cost is calculated per flight from that same distance; the aircraft recharges to 100% immediately after the passenger disembarks.
+Travel time between vertiports is the Euclidean distance between their latitude/longitude coordinates, rounded to the nearest tick (minimum 1). Battery cost is calculated per flight from that same distance. After the passenger disembarks, the aircraft charges at 5% per tick and is unavailable until `FinishCharging` returns it to `idle`.
 
-Each ride request is also tracked as a `FlightSector` — a journey record that starts in a `requested` state and is filled in as the ride progresses (aircraft assigned, distance/battery calculated, departure and arrival ticks stamped), rather than that information being computed once and thrown away. A request with no aircraft available at the origin is marked `rejected` instead of silently disappearing.
+When a ride is requested, the distance and battery required are computed first, then the aircraft at the origin is handed to its `AircraftAgent` (see [agent.py](agent.py)), which returns `accepted` or `rejected`. The agent only decides; `RequestRide` applies the result to the sector and the simulation. The agent accepts only if the aircraft is at the origin vertiport, is `idle`, and has more battery than the trip requires.
+
+Each ride request is also tracked as a `FlightSector` — a journey record that starts in a `requested` state and is filled in as the ride progresses (aircraft assigned, distance/battery calculated, departure and arrival ticks stamped), rather than that information being computed once and thrown away. A request is marked `rejected` instead of silently disappearing, either when no aircraft is available at the origin or when the agent declines.
 
 See [docs/current_architecture_diagram.png](docs/current_architecture_diagram.png) for the system architecture and [docs/Phase_1_Kaneki_journey_flow.png](docs/Phase_1_Kaneki_journey_flow.png) for a single passenger's journey through the event chain.
 
@@ -41,11 +43,13 @@ See [docs/current_architecture_diagram.png](docs/current_architecture_diagram.pn
 ├── main.py            # Loads a city file and drives the simulation entry point
 ├── models.py          # Core domain dataclasses (Passenger, Aircraft, Vertiport, FlightSector)
 ├── events.py          # Event classes that implement the ride lifecycle
-├── simulation.py      # Discrete-event engine (priority queue + registry)
+├── agent.py           # AircraftAgent: decides whether an aircraft accepts a ride
+├── simulation.py      # Discrete-event engine (priority queue + registry + logging)
 ├── metrics.py         # Placeholder for trip stats and fleet utilisation
 ├── data/
 │   └── cities/
 │       └── re.json    # Sample city: vertiports, aircraft, passengers, and ride requests
+├── logs/              # Structured run logs (.jsonl), written after each run
 └── docs/              # Architecture diagrams
 ```
 
@@ -59,15 +63,18 @@ Requires Python 3.10+
 python main.py
 ```
 
+Each run prints a log and saves it to `logs/run_<timestamp>.jsonl`.
+
 Example simulation log:
 ```
-[t=0] Rinkaku assigned to Kaneki (id: p0001) from Anteiku (id: v0001) to Zeum Hall (id: v0002)
-[t=1] Kaneki (id: p0001) boarded Rinkaku at Anteiku (id: v0001)
-[t=2] Rinkaku departed Anteiku -> Zeum Hall (ETA 41t)
-[t=5] Ride requested by p0005 from Anteiku to Tsukiyama Estate was cancelled due to no aircraft available.
-[t=43] Rinkaku arrived at Zeum Hall, battery 79%
-[t=44] Kaneki disembarked at Zeum Hall
-[t=45] Rinkaku charged to 100%, status idle
+[t=0][assigned] Rinkaku assigned to Kaneki (id: p0001) from Anteiku (id: v0001) to Zeum Hall (id: v0002)
+[t=1][boarded] Kaneki (id: p0001) boarded Rinkaku at Anteiku (id: v0001)
+[t=2][departed] Rinkaku departed Anteiku -> Zeum Hall (ETA 41t)
+[t=5][rejected] Ride requested (r0005) by Yoshimura (p0005) from Anteiku to Tsukiyama Estate was cancelled due to no aircraft available.
+[t=43][arrived] Rinkaku arrived at Zeum Hall, battery 79%
+[t=44][disembarked] Kaneki disembarked at Zeum Hall
+[t=45][charging] Rinkaku is currently being charged
+[t=50][charged] Rinkaku charged to 100%, status idle
 ...
 ```
 
@@ -78,7 +85,8 @@ Example simulation log:
 | Entity | Responsibility |
 |---|---|
 | **Vertiport** | Represents a landing location and maintains the aircraft currently stationed there. |
-| **Aircraft** | Represents an eVTOL vehicle with a home base, current location, battery level, and operational state. |
+| **Aircraft** | Represents an eVTOL vehicle with a home base, current location, battery level, on-board passenger, and operational state (`idle`, `flying`, `charging`). |
+| **AircraftAgent** | Decision logic for one aircraft: observes the aircraft and the requested sector, and returns accept or reject. |
 | **Passenger** | Represents a traveler. Tracks current location and status; does not carry a fixed destination — a passenger can take many trips, each defined by its own sector. |
 | **FlightSector** | The journey record for one ride request: passenger, origin, destination, assigned aircraft, distance, battery required, and timestamps. Created when the request is scheduled and filled in as the ride runs its course. |
 | **Event** | Represents a discrete action within the simulation. Each event updates the world and schedules the next event(s). |
@@ -126,14 +134,21 @@ Vertiport, passenger, and aircraft ids are referenced throughout by string id, s
 - Battery cost calculated from actual distance flown, not a flat rate
 - Rejected requests (no aircraft available) recorded instead of silently dropped
 
+### Phase 4 — Aircraft Agent
+
+- `AircraftAgent` decides whether an aircraft accepts a requested ride (location, status, battery)
+- Distance and battery requirement computed at request time so the agent can use them
+- Rejection by the agent recorded on the sector and in the log
+- Non-instant charging (5% per tick) with a `charging` state
+
 ### Planned
 
 - Resource-based aircraft scheduling
 - Passenger waiting queues
 - Simulation metrics
 - Aircraft utilization statistics
-- Battery-aware dispatch
-- Non-instant charging
+- Dispatch across multiple aircraft at a vertiport
+- Rejection reasons and passenger waiting/retry
 - Routing constraints
 - No-fly zones
 - Weather effects
