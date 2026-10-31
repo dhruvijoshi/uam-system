@@ -19,6 +19,7 @@ class LogCategory(str, Enum):
     DISEMBARKED = "disembarked"
     CHARGED = "charged"
     CHARGING = "charging"
+    SUMMARY = "summary"
 
 
 @dataclass
@@ -67,3 +68,4 @@ class FlightSector:
     arrival_time: int = 0
     estimated_time_of_arrival: int = 0     # Travel duration in ticks (distance truncated)
     status: str = "requested"        # requested → accepted | rejected; accepted → enroute → arrived
+    reject_reason: str | None = None  # no_aircraft | low_battery | not_at_origin, set when rejected

@@ -3,12 +3,14 @@ Entry point for the simulation.
 
 Wires up a small test world from re.json world file.
 """
-from models import Passenger, Aircraft, Vertiport, FlightSector
+from dispatch import best_fit
+from metrics import summarize
+from models import Passenger, Aircraft, Vertiport, FlightSector, LogCategory
 from simulation import Simulation
 import json
 
-def build_sim(world_path='./data/cities/re.json') -> Simulation:
-    sim = Simulation()
+def build_sim(world_path='./data/cities/re.json', dispatch_policy=best_fit) -> Simulation:
+    sim = Simulation(dispatch_policy)
 
     # Load and initialise world
     with open(world_path, 'r', encoding='utf-8') as file:
@@ -40,8 +42,12 @@ def main():
     sim = build_sim()
     sim.run()
 
+    summary = summarize(sim)
+    sim.log(LogCategory.SUMMARY, "Simulation summary", meta=summary)
+
     log_path = sim.save_logs()
     print(f"logs written to {log_path}")
+    print(summary)
 
 if __name__ == "__main__":
     main()

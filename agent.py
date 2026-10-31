@@ -6,6 +6,8 @@ The agent only decides; RequestRide applies the outcome to the simulation.
 from enum import Enum
 from models import FlightSector, Aircraft
 
+RESERVE = 20  # battery % that must remain after the flight
+
 class Decision(str, Enum):
     ACCEPT = "accepted"
     REJECT = "rejected"
@@ -34,20 +36,21 @@ class AircraftAgent:
 
 
 
-    def decide(self) -> Decision:
+    def decide(self) -> tuple[Decision, str | None]:
+        # Returns the decision and, on reject, the reason
         # Must be parked at the pickup vertiport
         if self.aircraft_location != self.sector_origin:
-            return Decision.REJECT
+            return Decision.REJECT, "not_at_origin"
 
-        # Not flying or charging
+        # Flying or charging: it will be idle again, so the ride can wait for it
         if self.aircraft_status != "idle":
-            return Decision.REJECT
+            return Decision.WAIT, None
 
-        # Strictly more charge than the trip needs
-        if self.battery > self.battery_required:
-            return Decision.ACCEPT
+        # Strictly more charge than the trip needs, plus the reserve
+        if self.battery > self.battery_required + RESERVE:
+            return Decision.ACCEPT, None
 
-        return Decision.REJECT
+        return Decision.REJECT, "low_battery"
 
 
     

@@ -9,6 +9,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from dispatch import best_fit
 from events import RequestRide
 from models import Vertiport, Aircraft, Passenger, FlightSector, LogCategory
 
@@ -26,7 +27,8 @@ class LogEntry:
 
 
 class Simulation:
-    def __init__(self):
+    def __init__(self, dispatch_policy=best_fit):
+        self.dispatch_policy = dispatch_policy
         self.now = 0
         self._queue = []
         # Same-time events preserve insertion order in the heap

@@ -5,13 +5,14 @@ Each event's execute() method may schedule follow-on events, forming a chain:
   RequestRide → BoardPassenger → DepartAircraft → ArriveAircraft
               → DisembarkPassenger → ChargeAircraft → FinishCharging
 
-At RequestRide the aircraft's agent decides whether to accept; on reject
-the chain stops there.
+At RequestRide the dispatcher offers the ride to the aircraft at the origin; on
+reject the chain stops there, and while an aircraft is busy the request is retried.
 """
 import math
 from dataclasses import dataclass
 from models import Passenger, Aircraft, Vertiport, FlightSector, LogCategory
-from agent import AircraftAgent, Decision
+from agent import Decision
+from dispatch import select_aircraft
 
 @dataclass
 class RequestRide:
@@ -28,23 +29,12 @@ class RequestRide:
         self.sector.battery_required = math.ceil(distance) / 2
         self.sector.estimated_time_of_arrival = int(distance)
 
-        aircraft = self.find_aircraft()
+        decision, aircraft, reason = select_aircraft(self.origin, self.sector, sim.dispatch_policy)
 
-        if aircraft is None:
-            # ride rejected due to no aircrafts at vertiport
-            self.sector.status = "rejected"
-            sim.log(
-                LogCategory.REJECTED,
-                f"Ride requested ({self.sector.id}) by {self.passenger.name} ({self.passenger.id}) from {self.origin.name} to {self.destination.name} was cancelled due to no aircraft available.",
-                sector=self.sector.id, passenger=self.passenger.id,
-                meta={"origin": self.origin.id, "destination": self.destination.id},
-            )
+        if decision == Decision.WAIT:
+            # An aircraft here is still flying or charging; ask again next tick
+            sim.schedule(sim.now + 1, self)
             return
-        
-        # The aircraft's agent decides whether to take the ride
-        agent = AircraftAgent(aircraft, self.sector)
-        agent.observe()
-        decision = agent.decide()
 
         if decision == Decision.ACCEPT:
             self.passenger.status = "assigned"
@@ -61,18 +51,14 @@ class RequestRide:
             sim.schedule(sim.now+1, BoardPassenger(self.passenger, aircraft, self.origin, self.destination, self.sector))
         
         else:
-            # Agent declined
             self.sector.status = "rejected"
+            self.sector.reject_reason = reason
             sim.log(
-                        LogCategory.REJECTED,
-                        f"{aircraft.id} rejected the ride",
-                        actor=aircraft.id, sector=self.sector.id,
-                    )
-
-    def find_aircraft(self) -> Aircraft | None:
-        if self.origin.aircrafts:
-            return self.origin.aircrafts[-1]
-        return None
+                LogCategory.REJECTED,
+                f"Ride requested ({self.sector.id}) by {self.passenger.name} ({self.passenger.id}) from {self.origin.name} to {self.destination.name} was cancelled ({reason}).",
+                sector=self.sector.id, passenger=self.passenger.id,
+                meta={"origin": self.origin.id, "destination": self.destination.id, "reason": reason},
+            )
 
 
 @dataclass
@@ -114,7 +100,7 @@ class DepartAircraft:
             LogCategory.DEPARTED,
             f"{self.aircraft.id} departed {self.origin.name} -> {self.destination.name} (ETA {travel_time}t)",
             actor=self.aircraft.id, sector=self.sector.id,
-            meta={"distance": self.sector.distance, "battery_required": self.sector.battery_required, "eta": travel_time},
+            meta={"distance": self.sector.distance, "battery_required": self.sector.battery_required, "eta": travel_time, "battery": self.aircraft.battery},
         )
         sim.schedule(sim.now + travel_time, ArriveAircraft(self.passenger, self.aircraft, self.destination, self.sector))
 
