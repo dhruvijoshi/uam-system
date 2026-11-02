@@ -28,9 +28,13 @@ RequestRide → BoardPassenger → DepartAircraft → ArriveAircraft → Disemba
 
 Travel time between vertiports is the Euclidean distance between their latitude/longitude coordinates, rounded to the nearest tick (minimum 1). Battery cost is calculated per flight from that same distance. After the passenger disembarks, the aircraft charges at 5% per tick and is unavailable until `FinishCharging` returns it to `idle`.
 
-When a ride is requested, the distance and battery required are computed first, then the aircraft at the origin is handed to its `AircraftAgent` (see [agent.py](agent.py)), which returns `accepted` or `rejected`. The agent only decides; `RequestRide` applies the result to the sector and the simulation. The agent accepts only if the aircraft is at the origin vertiport, is `idle`, and has more battery than the trip requires.
+When a ride is requested, the distance and battery required are computed first, then the dispatcher (see [dispatch.py](dispatch.py)) ranks the aircraft at the origin with the simulation's dispatch policy and asks each one's `AircraftAgent` (see [agent.py](agent.py)) in that order. The first to accept gets the ride. The agent only decides; `RequestRide` applies the result to the sector and the simulation. An agent accepts only if the aircraft is at the origin vertiport, is `idle`, and has more battery than the trip requires plus a 20% reserve. If an aircraft at the origin is still flying or charging and none can take the ride yet, the request is retried each tick until one is idle.
 
-Each ride request is also tracked as a `FlightSector` — a journey record that starts in a `requested` state and is filled in as the ride progresses (aircraft assigned, distance/battery calculated, departure and arrival ticks stamped), rather than that information being computed once and thrown away. A request is marked `rejected` instead of silently disappearing, either when no aircraft is available at the origin or when the agent declines.
+Dispatch policies are sort keys over the aircraft at the origin: `best_fit` (default, lowest sufficient battery first, keeping fully charged aircraft free for longer trips) and `highest_battery`. Pass one to `build_sim(dispatch_policy=...)`.
+
+Each ride request is also tracked as a `FlightSector` — a journey record that starts in a `requested` state and is filled in as the ride progresses (aircraft assigned, distance/battery calculated, departure and arrival ticks stamped), rather than that information being computed once and thrown away. A request is marked `rejected` instead of silently disappearing, with the reason stored on the sector (`reject_reason`) and in the log: `no_aircraft` when none is at the origin, `low_battery` when every aircraft there is too low to fly the trip.
+
+After a run, [metrics.py](metrics.py) summarises it: acceptance rate, rejections by reason, and average battery at departure.
 
 See [docs/current_architecture_diagram.png](docs/current_architecture_diagram.png) for the system architecture and [docs/Phase_1_Kaneki_journey_flow.png](docs/Phase_1_Kaneki_journey_flow.png) for a single passenger's journey through the event chain.
 
@@ -44,8 +48,9 @@ See [docs/current_architecture_diagram.png](docs/current_architecture_diagram.pn
 ├── models.py          # Core domain dataclasses (Passenger, Aircraft, Vertiport, FlightSector)
 ├── events.py          # Event classes that implement the ride lifecycle
 ├── agent.py           # AircraftAgent: decides whether an aircraft accepts a ride
+├── dispatch.py        # Battery-aware dispatch: ranks aircraft at a vertiport and picks one
 ├── simulation.py      # Discrete-event engine (priority queue + registry + logging)
-├── metrics.py         # Placeholder for trip stats and fleet utilisation
+├── metrics.py         # Run summary: acceptance rate, rejection reasons, departure battery
 ├── data/
 │   └── cities/
 │       └── re.json    # Sample city: vertiports, aircraft, passengers, and ride requests
@@ -70,7 +75,7 @@ Example simulation log:
 [t=0][assigned] Rinkaku assigned to Kaneki (id: p0001) from Anteiku (id: v0001) to Zeum Hall (id: v0002)
 [t=1][boarded] Kaneki (id: p0001) boarded Rinkaku at Anteiku (id: v0001)
 [t=2][departed] Rinkaku departed Anteiku -> Zeum Hall (ETA 41t)
-[t=5][rejected] Ride requested (r0005) by Yoshimura (p0005) from Anteiku to Tsukiyama Estate was cancelled due to no aircraft available.
+[t=5][rejected] Ride requested (r0005) by Yoshimura (p0005) from Anteiku to Tsukiyama Estate was cancelled (no_aircraft).
 [t=43][arrived] Rinkaku arrived at Zeum Hall, battery 79%
 [t=44][disembarked] Kaneki disembarked at Zeum Hall
 [t=45][charging] Rinkaku is currently being charged
@@ -86,7 +91,8 @@ Example simulation log:
 |---|---|
 | **Vertiport** | Represents a landing location and maintains the aircraft currently stationed there. |
 | **Aircraft** | Represents an eVTOL vehicle with a home base, current location, battery level, on-board passenger, and operational state (`idle`, `flying`, `charging`). |
-| **AircraftAgent** | Decision logic for one aircraft: observes the aircraft and the requested sector, and returns accept or reject. |
+| **AircraftAgent** | Decision logic for one aircraft: observes the aircraft and the requested sector, and returns accept, reject (with a reason), or wait. |
+| **Dispatch policy** | A sort key that orders the aircraft at a vertiport; the first one whose agent accepts flies the ride. |
 | **Passenger** | Represents a traveler. Tracks current location and status; does not carry a fixed destination — a passenger can take many trips, each defined by its own sector. |
 | **FlightSector** | The journey record for one ride request: passenger, origin, destination, assigned aircraft, distance, battery required, and timestamps. Created when the request is scheduled and filled in as the ride runs its course. |
 | **Event** | Represents a discrete action within the simulation. Each event updates the world and schedules the next event(s). |
@@ -141,14 +147,20 @@ Vertiport, passenger, and aircraft ids are referenced throughout by string id, s
 - Rejection by the agent recorded on the sector and in the log
 - Non-instant charging (5% per tick) with a `charging` state
 
+### Phase 5 — Battery-Aware Dispatch
+
+- `dispatch.py` picks among all aircraft at the origin instead of the last one parked, so a charging aircraft no longer blocks an idle one
+- 20% battery reserve required after the flight
+- Pluggable dispatch policy (`best_fit`, `highest_battery`)
+- Rejection reasons (`no_aircraft`, `low_battery`) on the sector and in the log
+- Rides wait and retry while an aircraft at the origin is still flying or charging
+- Run summary in `metrics.py`
+
 ### Planned
 
 - Resource-based aircraft scheduling
 - Passenger waiting queues
-- Simulation metrics
 - Aircraft utilization statistics
-- Dispatch across multiple aircraft at a vertiport
-- Rejection reasons and passenger waiting/retry
 - Routing constraints
 - No-fly zones
 - Weather effects
